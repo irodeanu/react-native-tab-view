@@ -1,26 +1,29 @@
 import * as React from 'react';
 import {
+  I18nManager,
+  type LayoutChangeEvent,
+  Platform,
+  type StyleProp,
   StyleSheet,
   View,
-  StyleProp,
-  ViewStyle,
-  LayoutChangeEvent,
+  type ViewStyle,
 } from 'react-native';
-import TabBar from './TabBar';
-import SceneView from './SceneView';
-import Pager from './Pager';
+
+import { Pager } from './Pager';
+import { SceneView } from './SceneView';
+import { TabBar } from './TabBar';
 import type {
   Layout,
+  LocaleDirection,
   NavigationState,
+  PagerProps,
   Route,
   SceneRendererProps,
-  PagerProps,
 } from './types';
 
-export type Props<T extends Route> = PagerProps & {
+export type Props<T extends Route> = Omit<PagerProps, 'layoutDirection'> & {
   onIndexChange: (index: number) => void;
   navigationState: NavigationState<T>;
-  renderScene: (props: SceneRendererProps & { route: T }) => React.ReactNode;
   renderLazyPlaceholder?: (props: { route: T }) => React.ReactNode;
   renderTabBar?: (
     props: SceneRendererProps & { navigationState: NavigationState<T> }
@@ -30,11 +33,13 @@ export type Props<T extends Route> = PagerProps & {
   lazy?: ((props: { route: T }) => boolean) | boolean;
   lazyPreloadDistance?: number;
   sceneContainerStyle?: StyleProp<ViewStyle>;
+  direction?: LocaleDirection;
   pagerStyle?: StyleProp<ViewStyle>;
   style?: StyleProp<ViewStyle>;
+  renderScene: (props: SceneRendererProps & { route: T }) => React.ReactNode;
 };
 
-export default function TabView<T extends Route>({
+export function TabView<T extends Route>({
   onIndexChange,
   navigationState,
   renderScene,
@@ -49,10 +54,23 @@ export default function TabView<T extends Route>({
   sceneContainerStyle,
   pagerStyle,
   style,
+  direction = I18nManager.getConstants().isRTL ? 'rtl' : 'ltr',
   swipeEnabled = true,
   tabBarPosition = 'top',
   animationEnabled = true,
+  overScrollMode,
 }: Props<T>) {
+  if (
+    Platform.OS !== 'web' &&
+    direction !== (I18nManager.getConstants().isRTL ? 'rtl' : 'ltr')
+  ) {
+    console.warn(
+      `The 'direction' prop is set to '${direction}' but the effective value is '${
+        I18nManager.getConstants().isRTL ? 'rtl' : 'ltr'
+      }'. This is not supported. Please use I18nManager.forceRTL to change the layout direction.`
+    );
+  }
+
   const [layout, setLayout] = React.useState({
     width: 0,
     height: 0,
@@ -88,10 +106,12 @@ export default function TabView<T extends Route>({
         onSwipeEnd={onSwipeEnd}
         onIndexChange={jumpToIndex}
         animationEnabled={animationEnabled}
+        overScrollMode={overScrollMode}
         style={pagerStyle}
+        layoutDirection={direction}
       >
         {({ position, render, addEnterListener, jumpTo }) => {
-          // All of the props here must not change between re-renders
+          // All the props here must not change between re-renders
           // This is crucial to optimizing the routes with PureComponent
           const sceneRendererProps = {
             position,

@@ -1,23 +1,24 @@
 import * as React from 'react';
 import {
   Animated,
-  PanResponder,
+  type GestureResponderEvent,
   Keyboard,
+  PanResponder,
+  type PanResponderGestureState,
   StyleSheet,
-  GestureResponderEvent,
-  PanResponderGestureState,
-  I18nManager,
   View,
 } from 'react-native';
-import useAnimatedValue from './useAnimatedValue';
+import useLatestCallback from 'use-latest-callback';
+
 import type {
-  NavigationState,
-  Route,
-  Layout,
   EventEmitterProps,
-  PagerProps,
+  Layout,
   Listener,
+  NavigationState,
+  PagerProps,
+  Route,
 } from './types';
+import { useAnimatedValue } from './useAnimatedValue';
 
 type Props<T extends Route> = PagerProps & {
   layout: Layout;
@@ -48,7 +49,7 @@ const DefaultTransitionSpec = {
   overshootClamping: true,
 };
 
-export default function PanResponderAdapter<T extends Route>({
+export function PanResponderAdapter<T extends Route>({
   layout,
   keyboardDismissMode = 'auto',
   swipeEnabled = true,
@@ -59,6 +60,7 @@ export default function PanResponderAdapter<T extends Route>({
   children,
   style,
   animationEnabled = false,
+  layoutDirection = 'ltr',
 }: Props<T>) {
   const { routes, index } = navigationState;
 
@@ -76,7 +78,7 @@ export default function PanResponderAdapter<T extends Route>({
   const swipeVelocityThreshold = 0.15;
   const swipeDistanceThreshold = layout.width / 1.75;
 
-  const jumpToIndex = React.useCallback(
+  const jumpToIndex = useLatestCallback(
     (index: number, animate = animationEnabled) => {
       const offset = -index * layoutRef.current.width;
 
@@ -101,8 +103,7 @@ export default function PanResponderAdapter<T extends Route>({
         onIndexChangeRef.current(index);
         pendingIndexRef.current = undefined;
       }
-    },
-    [animationEnabled, panX]
+    }
   );
 
   React.useEffect(() => {
@@ -146,7 +147,8 @@ export default function PanResponderAdapter<T extends Route>({
       return false;
     }
 
-    const diffX = I18nManager.isRTL ? -gestureState.dx : gestureState.dx;
+    const diffX =
+      layoutDirection === 'rtl' ? -gestureState.dx : gestureState.dx;
 
     return (
       isMovingHorizontally(event, gestureState) &&
@@ -171,7 +173,8 @@ export default function PanResponderAdapter<T extends Route>({
     _: GestureResponderEvent,
     gestureState: PanResponderGestureState
   ) => {
-    const diffX = I18nManager.isRTL ? -gestureState.dx : gestureState.dx;
+    const diffX =
+      layoutDirection === 'rtl' ? -gestureState.dx : gestureState.dx;
 
     if (
       // swiping left
@@ -221,7 +224,7 @@ export default function PanResponderAdapter<T extends Route>({
         Math.min(
           Math.max(
             0,
-            I18nManager.isRTL
+            layoutDirection === 'rtl'
               ? currentIndex + gestureState.dx / Math.abs(gestureState.dx)
               : currentIndex - gestureState.dx / Math.abs(gestureState.dx)
           ),
@@ -239,8 +242,7 @@ export default function PanResponderAdapter<T extends Route>({
     jumpToIndex(nextIndex, true);
   };
 
-  // TODO: use the listeners
-  const addEnterListener = React.useCallback((listener: Listener) => {
+  const addEnterListener = useLatestCallback((listener: Listener) => {
     listenersRef.current.push(listener);
 
     return () => {
@@ -250,18 +252,16 @@ export default function PanResponderAdapter<T extends Route>({
         listenersRef.current.splice(index, 1);
       }
     };
-  }, []);
+  });
 
-  const jumpTo = React.useCallback(
-    (key: string) => {
-      const index = navigationStateRef.current.routes.findIndex(
-        (route: { key: string }) => route.key === key
-      );
+  const jumpTo = useLatestCallback((key: string) => {
+    const index = navigationStateRef.current.routes.findIndex(
+      (route: { key: string }) => route.key === key
+    );
 
-      jumpToIndex(index);
-    },
-    [jumpToIndex]
-  );
+    jumpToIndex(index);
+    onIndexChange(index);
+  });
 
   const panResponder = PanResponder.create({
     onMoveShouldSetPanResponder: canMoveScreen,
@@ -280,7 +280,7 @@ export default function PanResponderAdapter<T extends Route>({
       outputRange: [-maxTranslate, 0],
       extrapolate: 'clamp',
     }),
-    I18nManager.isRTL ? -1 : 1
+    layoutDirection === 'rtl' ? -1 : 1
   );
 
   const position = React.useMemo(
@@ -317,8 +317,8 @@ export default function PanResponderAdapter<T extends Route>({
                 layout.width
                   ? { width: layout.width }
                   : focused
-                  ? StyleSheet.absoluteFill
-                  : null
+                    ? StyleSheet.absoluteFill
+                    : null
               }
             >
               {focused || layout.width ? child : null}

@@ -1,10 +1,11 @@
 import * as React from 'react';
-import { View, StyleSheet, StyleProp, ViewStyle } from 'react-native';
+import { type StyleProp, StyleSheet, View, type ViewStyle } from 'react-native';
+
 import type {
-  SceneRendererProps,
   EventEmitterProps,
   NavigationState,
   Route,
+  SceneRendererProps,
 } from './types';
 
 type Props<T extends Route> = SceneRendererProps &
@@ -17,7 +18,7 @@ type Props<T extends Route> = SceneRendererProps &
     style?: StyleProp<ViewStyle>;
   };
 
-export default function SceneView<T extends Route>({
+export function SceneView<T extends Route>({
   children,
   navigationState,
   lazy,
@@ -53,7 +54,7 @@ export default function SceneView<T extends Route>({
     };
 
     let unsubscribe: (() => void) | undefined;
-    let timer: NodeJS.Timeout;
+    let timer: NodeJS.Timeout | undefined;
 
     if (lazy && isLoading) {
       // If lazy mode is enabled, listen to when we enter screens
@@ -83,8 +84,8 @@ export default function SceneView<T extends Route>({
         layout.width
           ? { width: layout.width }
           : focused
-          ? StyleSheet.absoluteFill
-          : null,
+            ? StyleSheet.absoluteFill
+            : null,
         style,
       ]}
     >
